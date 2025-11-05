@@ -93,17 +93,32 @@ const CameraIcon = () => (
 
 
 // --- Firebase Configuration ---
+// Validate required Firebase config
+const requiredEnvVars = [
+  'NEXT_PUBLIC_FIREBASE_API_KEY',
+  'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
+  'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
+  'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
+  'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
+  'NEXT_PUBLIC_FIREBASE_APP_ID'
+];
+
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+if (missingVars.length > 0) {
+  throw new Error(`Missing required Firebase environment variables: ${missingVars.join(', ')}`);
+}
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-};
-
-if (!process.env.NEXT_PUBLIC_APP_ID) {
-  throw new Error('NEXT_PUBLIC_APP_ID environment variable is required');
+try {
+  app = initializeApp(firebaseConfig);
+  auth = getAuth(app);
+  db = getFirestore(app);
+  setPersistence(auth, inMemoryPersistence);
+} catch (e) {
+  console.error("Firebase initialization error:", e);
+  throw new Error("Failed to initialize Firebase. Please check your configuration.");
 }
 const appId = process.env.NEXT_PUBLIC_APP_ID;
 
@@ -986,8 +1001,16 @@ function ChatModal({ invoices, summary, onClose }) {
       Current Summary:
       - Total Outstanding: $${summary.totalOutstanding.toFixed(2)}
       - Total Overdue: $${summary.totalOverdue.toFixed(2)}
-      - Paid (Last 30d): $${summary.paidLast30Days.toFixed(2)}
-      
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (!apiKey) {
+      setChatHistory(prev => [...prev, { 
+        role: 'model', 
+        text: "Error: AI service not configured. Please contact support." 
+      }]);
+      setIsThinking(false);
+      return;
+    }
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
       All Invoices (${invoices.length} total):
       ${JSON.stringify(invoicesContext, null, 2)}
     `;

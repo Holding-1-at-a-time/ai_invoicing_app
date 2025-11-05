@@ -11,8 +11,8 @@ service cloud.firestore {
     }
 
     function isValidAppId() {
-      return request.auth.token.app_id == 'actual-production-app-id' ||
-             request.auth.token.app_id == 'default-app-id';
+      return request.auth.token.app_id != null && 
+             request.auth.token.app_id != '';
     }
 
     // Root collection access - deny all direct access
@@ -30,19 +30,36 @@ service cloud.firestore {
 
     // Invoices subcollection with additional validation
     match /artifacts/{appId}/users/{userId}/invoices/{invoiceId} {
-      allow read, write: if isAuthenticated() &&
-                            isOwner(userId) &&
-                            isValidAppId() &&
-                            request.auth.token.app_id == appId &&
-                            // Validate invoice data structure
-                            validateInvoiceData();
+      allow read: if isAuthenticated() &&
+                     isOwner(userId) &&
+                     isValidAppId() &&
+                     request.auth.token.app_id == appId;
+      
+      allow write: if isAuthenticated() &&
+                      isOwner(userId) &&
+                      isValidAppId() &&
+                      request.auth.token.app_id == appId &&
+                      validateInvoiceData();
     }
 
     // Helper function to validate invoice data
     function validateInvoiceData() {
-      return request.resource.data.keys().hasAll(['customerName', 'customerEmail', 'serviceDescription', 'amount', 'dueDate', 'createdAt', 'status']) &&
-             request.resource.data.customerName is string &&
-             request.resource.data.customerName.size() > 0 &&
+             request.resource.data.customerEmail.matches('^[^@]+@[^@]+\\.[^@]+
+             request.resource.data.customerEmail is string &&
+             request.resource.data.customerEmail.matches('^[^@]+@[^@]+\\.[^@]+
+  }
+}) &&
+             request.resource.data.serviceDescription is string &&
+             request.resource.data.serviceDescription.size() > 0 &&
+             request.resource.data.amount is number &&
+             request.resource.data.amount > 0 &&
+             request.resource.data.dueDate is timestamp &&
+             request.resource.data.createdAt is timestamp &&
+             request.resource.data.createdAt <= request.resource.data.dueDate &&
+             request.resource.data.status in ['Pending', 'Paid', 'Overdue'];
+    }
+  }
+}) &&
              request.resource.data.customerEmail is string &&
              request.resource.data.customerEmail.matches('^[^@]+@[^@]+\\.[^@]+
   }
